@@ -6,7 +6,7 @@
 #OG switches: /MIR /XA:SH /XJD /XX /R:5 /W:15 /MT:32 /V /NP /DCOPY:T
 
 function transfer-folder {	#file transfer function via Robocopy
-	robocopy \\$OldPCserial\C$\Users\$sourceUsersFolder\$txfolder \\$NewPCserial\C$\Users\$destUsersFolder\$txfolder /mt:128 /xa:SH /mir /compress /xx /xjd /dcopy:T #/log:\\$NewPCserial\C$\Data\transfer-script\$NewPCserial\log.txt /z
+	robocopy \\$OldPCserial\C$\Users\$sourceUsersFolder\$txfolder \\$NewPCserial\C$\Users\$destUsersFolder\$txfolder /mt:128 /xa:SH /mir /compress /xx /xjd /dcopy:T #/log:\\$NewPCserial\C$\Data\transfer-script-v2-log\$txfolder-log.txt
 }
 
 function folder-checker {	#checks whether the Users folder exists
@@ -17,19 +17,36 @@ function press-key {	#press any key to contine function
 	Read-Host "`nPress enter to continue...`n"	
 }
 
-
-function printer-mius
+function printer-mius ( $printerqueue )##adds printer to local computer
 {
-    Add-Printer -ConnectionName \\miusprint\$printername
+    Add-Printer -ConnectionName \\miusprint\$printerqueue
+}
+
+function Connection-Checker ( $PCserial )#Checks if a PC is online via ping
+{
+Test-Connection -ComputerName $PCserial -Count 3 -Delay 2 -Quiet
 }
 
 $user = $env:username
+$OldPCconnection = $false
+$NewPCconnection = $false
+
+#Privledge escalation 
+
+#https://stackoverflow.com/questions/7690994/running-a-command-as-administrator-using-powershell
+
+#https://stackoverflow.com/questions/60209449/how-to-elevate-a-powershell-script-from-within-a-script
+
+#https://ss64.com/ps/syntax-elevate.html
+
+#if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) { Start-Process powershell.exe "-NoProfile Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -File `"$PSCommandPath`"" -Verb RunAs; exit }
+if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) { Start-Process powershell.exe "-NoProfile -ExecutionPolicy Unrestricted -File `"$PSCommandPath`"" -Verb RunAs; exit }
 
 
-#Privledge escalation https://stackoverflow.com/questions/7690994/running-a-command-as-administrator-using-powershell
-
-if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) { Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs; exit }
-
+Write-Host "#############################"
+Write-Host "###Data Transfer Script v2###"
+Write-Host "#############################"
+Write-Host "`nPress CTRL + C to quit at any time.`n"
 
 while ( 1 )
 {
@@ -90,70 +107,44 @@ while ( 1 )
 
 
 
-#Ping computer that is not running the script 
-#REWRITE THIS AS FUNCTION
-#I want this to ping the remote computer and keep pinging until the computer responds while prompting the user to check the device's connection
+#Pings both computers and determines their status
 
 $connectionstatus = "offline"
 
 Write-Host "`nStarting network check`n"
 
-While ( $connectionstatus -eq "offline" )
+While (1)
 {
-	if ( $OldPCserial -eq $env:computername )
-	{
-		if ( Test-Connection -ComputerName $NewPCserial -Count 3 -Delay 2 -Quiet )
-		{
-			$connectionstatus = "online"
-			Write-Host "`nRemote computer is online... Continuing...`n"
-            Start-Sleep -Seconds 1.5
-		}
-		else
-		{
-			$connectionstatus = "offline"
-			Write-Warning "$NewPCserial is offline... Check network."
-            press-key
-		}
-	}
-	elseif ( $NewPCserial -eq $env:computername )
-	{
-		if (Test-Connection -ComputerName $OldPCserial -Count 3 -Delay 2 -Quiet )
-		{
-			$connectionstatus = "online"
-			Write-Host "`nRemote computer is online... Continuing...`n"
-            Start-Sleep -Seconds 1.5
-		}
-		else
-		{
-			$connectionstatus = "offline"
-			Write-Warning "$OldPCserial is offline... Check network."
-            press-key
-		}
-	}
-	else #check if both PCs are online
-	{
-		if ( Test-Connection -ComputerName $OldPCserial -Count 3 -Delay 2 -Quiet ) #check if OLD PC is online
+        if ( Connection-Checker $OldPCserial )
         {
-		    Write-Host "$OldPCserial is online..."
-            $connectionstatus = "online"
+            Write-Host "`n$OldPCserial is online... Continuing...`n"
+            Start-Sleep -Seconds 1
+            $OldPCconnection = $true
         }
         else
         {
-            Write-Warning "Check if $OldPCserial is offline... Check network"
+            Write-Warning "$OldPCserial is offline... Check network."
             press-key
         }
-        #check if NEW PC is online
-        if ( Test-Connection -ComputerName $NewPCserial -Count 3 -Delay 2 -Quiet )
+        if ( Connection-Checker $NewPCserial )
         {
-		    Write-Host "$NewPCserial is online..."
-            $connectionstatus = "online"
+            Write-Host "`n$NewPCserial is online... Continuing...`n"
+            Start-Sleep -Seconds 1
+            $NewPCconnection = $true
         }
         else
         {
-            Write-Warning "Check if $NewPCserial is offline... Check network..."
+            Write-Warning "$NewPCserial is offline... Check network."
             press-key
         }
-	}
+        if ( $OldPCconnection -eq $true -And $NewPCconnection -eq $true )
+        {
+            break
+        }
+        else
+        {
+            Write-Host "Checking network again...`n"
+        }
 }
 
 
@@ -205,7 +196,7 @@ while ( 1 )
 $txfolderls = @(
 	'3D Objects'
 	'AppData\Roaming\Microsoft\Excel\XLSTART'
-    'AppData\Local\Chrome\Profile\Default'
+    'AppData\Local\Chrome\Profile\Default Bookmarks'
     'AppData\Local\Microsoft\Outlook *.pst'
 	'Contacts'
 	'Desktop'
@@ -225,39 +216,60 @@ foreach ( $txfolder in $txfolderls )
 	Write-Host "`n$txfolder done.`n"
 }
 
-Write-Host "Data transfer has finsihed successfully."
+Write-Host "Data transfer has finished successfully."
 press-key
 
 #add printers
 #currently adds printer to the host computer. Need to figure out how to add to $NewPCserial
 
+Write-Host "Preparing to add printers..."
 
-$numPrinters = Read-Host "`nHow many printers do you was to add from \\miusprint?`n"
-$printerls = @() #create printer list
+Write-Host "Running Mi Login Script..."
+
+\\corp.motion-ind.com\netlogon\milogon.cmd
+
+Write-Host "`nBuilding printer DB...`n"
+
+$printerls = Get-Printer -ComputerName miusprint 
+
+Write-Host "DB done...`n"
+
+$printnamels = $printerls.Name
+
+#$printnames
+
+$branch = Read-Host '`nWhat branch would you like to print from? (EX: AL06)`n'
+
+$printaddls = @()
 
 
-
-if ( $numPrinters -gt 0 )
+if ( $NewPCserial -eq $env:computername )
 {
-    foreach ( $i in 1..$numPrinters )
+    foreach ($printer in $printnamels )
     {
-        $printeradd = Read-Host "`nEnter the name of the printer you would like to add from \\miusprint (ex:DP04PRT01):`n"
-        $printeradd = $printeradd.Trim()
-        $printerls.Add($printeradd)
+        if ($printer.StartsWith($branch))
+        {
+            $printaddls += $printer
+        }
+        else{}
+        foreach ( $printeradd in $printeraddls )
+        {
+            printer-mius $printeradd
+            Write-Host "$printeradd connected to $NewPCserial..."
+        }
     }
-    foreach ( $printername in $printerls)
-    {
-        printer-mius
-    }
+}
+elseif ( $OldPCserial -eq $env:computername -And $numPrinters -gt 0 )
+{
+    Write-Warning "You are trying to add printers to the old PC $env:computername...`nTo add printers, please run this script on the New PC next time..."
+    press-key
 }
 else
 {
     Write-Host "No printers will be added..."
-    press-key
+    Start-Sleep -Seconds 1
 }
 
 
-#add function to set default apps
-#call function to set defaults
 
 Exit 1;
