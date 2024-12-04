@@ -222,15 +222,9 @@ press-key
 #add printers
 #currently adds printer to the host computer. Need to figure out how to add to $NewPCserial
 
-Write-Host "Preparing to add printers..."
-
-Write-Host "Running Mi Login Script..."
-
-\\corp.motion-ind.com\netlogon\milogon.cmd
-
 Write-Host "`nBuilding printer DB...`n"
 
-$printerls = Get-Printer -ComputerName miusprint 
+$printerls = Get-Printer -ComputerName #<insert print server hostname here> 
 
 Write-Host "DB done...`n"
 
@@ -238,7 +232,7 @@ $printnamels = $printerls.Name
 
 #$printnames
 
-$branch = Read-Host '`nWhat branch would you like to print from? (EX: AL06)`n'
+$branch = Read-Host 'What branch would you like to print from? (EX: AL06)'
 
 $printaddls = @()
 
