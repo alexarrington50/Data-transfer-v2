@@ -19,7 +19,7 @@ function press-key {	#press any key to contine function
 
 function printer-mius ( $printerqueue )##adds printer to local computer
 {
-    Add-Printer -ConnectionName \\miusprint\$printerqueue
+    Add-Printer -ConnectionName #\\<printserver>\$printerqueue
 }
 
 function Connection-Checker ( $PCserial )#Checks if a PC is online via ping
